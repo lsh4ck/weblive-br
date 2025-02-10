@@ -32,7 +32,7 @@ def check_domain_alive(domain):
 
 def query_baidu_weight(domains):
     """通过新接口查询百度权重和移动权重"""
-    api_url = "https://apistore.aizhan.com/baidurank/siteinfos/*******************"
+    api_url = "https://apistore.aizhan.com/baidurank/siteinfos/**************"
     try:
         response = requests.get(api_url, params={"domains": "|".join(domains)}, timeout=10, verify=False)
         if response.status_code == 200 and response.json().get("code") == 200000:
@@ -92,16 +92,22 @@ def process_urls():
                     weight_group = alive_domains_buffer[:group_size]
                     alive_domains_buffer = alive_domains_buffer[group_size:]
                     
-                    weight_results = query_baidu_weight(weight_group) or [
-                        {"domain": domain, "pc_br": "未找到", "m_br": "未找到", "ip": "未找到",
-                         "pc_ip": "未找到", "m_ip": "未找到"} for domain in weight_group]
+                    # 淡黄色进度条：权重查询
+                    with tqdm(total=len(weight_group), desc=f"{YELLOW}权重查询进度{RESET}", leave=False, colour="yellow") as pbar:
+                        weight_results = query_baidu_weight(weight_group) or [
+                            {"domain": domain, "pc_br": "未找到", "m_br": "未找到", "ip": "未找到",
+                             "pc_ip": "未找到", "m_ip": "未找到"} for domain in weight_group]
+                        pbar.update(len(weight_group))
                     
-                    shoulu_futures = {pool.submit(check_baidu_shoulu, r["domain"]): r for r in weight_results}
-                    results_to_save = []
-                    for future in as_completed(shoulu_futures):
-                        r = shoulu_futures[future]
-                        r["baidu_shoulu"] = future.result()
-                        results_to_save.append(r)
+                    # 淡黄色进度条：收录查询
+                    with tqdm(total=len(weight_results), desc=f"{YELLOW}收录查询进度{RESET}", leave=False, colour="yellow") as pbar:
+                        shoulu_futures = {pool.submit(check_baidu_shoulu, r["domain"]): r for r in weight_results}
+                        results_to_save = []
+                        for future in as_completed(shoulu_futures):
+                            r = shoulu_futures[future]
+                            r["baidu_shoulu"] = future.result()
+                            results_to_save.append(r)
+                            pbar.update(1)
                     
                     with open(output_file, "a", newline="", encoding="utf-8") as csvfile:
                         writer = csv.writer(csvfile)
@@ -116,12 +122,19 @@ def process_urls():
             # 处理剩余域名
             if alive_domains_buffer:
                 for domain in alive_domains_buffer:
-                    single_result = query_baidu_weight([domain]) or [{
-                        "domain": domain, "pc_br": "未找到", "m_br": "未找到", "ip": "未找到",
-                        "pc_ip": "未找到", "m_ip": "未找到"
-                    }]
-                    shoulu = check_baidu_shoulu(domain)
-                    single_result[0]["baidu_shoulu"] = shoulu
+                    # 淡黄色进度条：单个域名权重查询
+                    with tqdm(total=1, desc=f"{YELLOW}权重查询进度{RESET}", leave=False, colour="yellow") as pbar:
+                        single_result = query_baidu_weight([domain]) or [{
+                            "domain": domain, "pc_br": "未找到", "m_br": "未找到", "ip": "未找到",
+                            "pc_ip": "未找到", "m_ip": "未找到"
+                        }]
+                        pbar.update(1)
+                    
+                    # 淡黄色进度条：单个域名收录查询
+                    with tqdm(total=1, desc=f"{YELLOW}收录查询进度{RESET}", leave=False, colour="yellow") as pbar:
+                        shoulu = check_baidu_shoulu(domain)
+                        single_result[0]["baidu_shoulu"] = shoulu
+                        pbar.update(1)
                     
                     with open(output_file, "a", newline="", encoding="utf-8") as csvfile:
                         writer = csv.writer(csvfile)
