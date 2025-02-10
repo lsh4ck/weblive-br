@@ -1,6 +1,7 @@
-# weblive-br
+# weblive-br:存活探测+百度权重批量查询脚本
 ## 需要跑的url放到同目录下urls.txt，运行后自动生成results.csv
-存活探测+百度权重批量查询脚本
+## 星号处token自己申请
+
 
 ```
 python3.10 cunhuo.py
